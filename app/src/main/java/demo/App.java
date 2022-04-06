@@ -36,6 +36,26 @@ import org.apache.kudu.client.SessionConfiguration.FlushMode;
 public class App {
     private static final Double DEFAULT_DOUBLE = 12.345;
     private static final String KUDU_MASTERS = System.getProperty("kuduMasters", "cdp.52.88.188.166.nip.io:7051");
+    
+    static void createExampleTable(KuduClient client, String tableName)  throws KuduException {
+	    List<ColumnSchema> columns = new ArrayList<>(2);
+	    columns.add(new ColumnSchema.ColumnSchemaBuilder("key", Type.INT32)
+		.key(true)
+		.build());
+	    columns.add(new ColumnSchema.ColumnSchemaBuilder("value", Type.STRING).nullable(true)
+		.build());
+	    Schema schema = new Schema(columns);
+
+	    CreateTableOptions cto = new CreateTableOptions();
+	    List<String> hashKeys = new ArrayList<>(1);
+	    hashKeys.add("key");
+	    int numBuckets = 8;
+	    cto.addHashPartitions(hashKeys, numBuckets);
+            cto.setNumReplicas(1); // demo
+
+	    client.createTable(tableName, schema, cto);
+	    System.out.println("Created table " + tableName);
+	  }
 
     static void insertRows(KuduClient client, String tableName, int numRows) throws KuduException {
         // Open the newly-created table and create a KuduSession.
@@ -93,7 +113,7 @@ public class App {
     List<String> projectColumns = new ArrayList<>(2);
     projectColumns.add("key");
     projectColumns.add("value");
-    projectColumns.add("added");
+    //projectColumns.add("added");
     int lowerBound = 0;
     KuduPredicate lowerPred = KuduPredicate.newComparisonPredicate(
         schema.getColumn("key"),
@@ -122,11 +142,11 @@ public class App {
         if (result.isNull("value")) {
           nullCount++;
         }
-        double added = result.getDouble("added");
-        if (added != DEFAULT_DOUBLE) {
-          throw new RuntimeException("expected added=" + DEFAULT_DOUBLE +
-              " but got added= " + added);
-        }
+        //double added = result.getDouble("added");
+        //if (added != DEFAULT_DOUBLE) {
+        //  throw new RuntimeException("expected added=" + DEFAULT_DOUBLE +
+        //      " but got added= " + added);
+        //}
         resultCount++;
       }
     }
@@ -154,7 +174,7 @@ public class App {
 	    KuduClient client = new KuduClient.KuduClientBuilder(KUDU_MASTERS).build();
 
 	    try {
-	      //createExampleTable(client, tableName);
+	      createExampleTable(client, tableName);
 
 	      int numRows = 150;
 	      insertRows(client, tableName, numRows);
@@ -166,13 +186,13 @@ public class App {
 	      //client.alterTable(tableName, ato);
 	      //System.out.println("Altered the table");
 
-	      //scanTableAndCheckResults(client, tableName, numRows);
+	      scanTableAndCheckResults(client, tableName, numRows);
 	    } catch (Exception e) {
 	      e.printStackTrace();
 	    } finally {
 	      try {
-		//client.deleteTable(tableName);
-		//System.out.println("Deleted the table");
+		client.deleteTable(tableName);
+		System.out.println("Deleted the table");
 	      } catch (Exception e) {
 		e.printStackTrace();
 	      } finally {
